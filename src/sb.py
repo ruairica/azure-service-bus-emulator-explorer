@@ -221,9 +221,7 @@ async def post(entity: str, message: SbMessage):
             if x[0] != ""
         }
 
-        sender = connection.get_topic_sender(  # TODO does queue work?
-            topic_name=entity
-        )
+        sender = connection.get_topic_sender(topic_name=entity)
         sbMessage = ServiceBusMessage(
             body=message.body,
             content_type=message.messageContentType,
@@ -246,6 +244,51 @@ async def post(entity: str, message: SbMessage):
         print(e)
         return Toast(
             DivLAligned(UkIcon("square-x", cls="mr-2"), f"Failed to send: {e}"),
+            id="error-toast",
+            dur=7,
+            alert_cls=AlertT.error,
+            cls=(ToastHT.end, ToastVT.bottom),
+        )
+
+
+@rt("/{namespace}/{queue}/queue/send")
+async def post(queue: str, message: SbMessage):
+    try:
+        headers = {
+            x[0]: messagePropertyTypes[x[1]](x[2])
+            for x in zip(
+                message.messagePropertyKeys,
+                message.messagePropertyContentTypes,
+                message.messagePropertyValues,
+            )
+            if x[0] != ""
+        }
+
+        sender = connection.get_queue_sender(queue_name=queue)
+        sbMessage = ServiceBusMessage(
+            body=message.body,
+            content_type=message.messageContentType,
+            application_properties=headers,
+        )
+        with sender:
+            sender.send_messages(sbMessage)
+
+        return Toast(
+            DivLAligned(
+                UkIcon("check-circle", cls="mr-2"), "Message sent successfully to queue"
+            ),
+            id="success-toast",
+            dur=2,
+            alert_cls=AlertT.success,
+            cls=(ToastHT.end, ToastVT.bottom),
+        )
+
+    except Exception as e:
+        print(e)
+        return Toast(
+            DivLAligned(
+                UkIcon("square-x", cls="mr-2"), f"Failed to send to queue: {e}"
+            ),
             id="error-toast",
             dur=7,
             alert_cls=AlertT.error,
@@ -360,6 +403,7 @@ def send_message_form(
     messageBodyValue="",
     contentTypevalue="application/json",
     headers: List[List[str]] = [],
+    post_url: str = None,
 ):
     headerRows = (
         [
@@ -369,10 +413,12 @@ def send_message_form(
         if headers
         else [message_header_row(0)]
     )
+    if post_url is None:
+        post_url = f"/{namespace}/{entity}/send"
     return Form(
         id="send-message-form",
         cls="space-y-4",
-        hx_post=f"/{namespace}/{entity}/send",
+        hx_post=post_url,
         hx_target="#send-message-form",
         hx_swap="afterend",
     )(
@@ -462,6 +508,23 @@ def get():
 
 
 # There is more properties that can be added to the message display, need to decide what's important.
+def queue_message_display(
+    namespace: str, queue: str, message: ServiceBusReceivedMessage, message_type: str
+):
+    return Div(
+        Div(
+            P(f"{message.sequence_number}: {message.message_id}"),
+            P(f"Enqueued at {message.enqueued_time_utc.strftime('%Y-%m-%d %H:%M:%S')}"),
+            hx_trigger="click",
+            hx_get=f"/{namespace}/{queue}/messages/{message_type}/{message.sequence_number}",
+            hx_target="#enlarged-message",
+            hx_swap="outerHTML",
+            cls=("cursor-pointer", "hover:bg-secondary", "p-2"),
+        ),
+        Divider(),
+    )
+
+
 def active_message_display(
     namespace: str, entity: str, subscription: str, message: ServiceBusReceivedMessage
 ):
@@ -594,7 +657,7 @@ def get(configId: int, namespace: str, topic: str, subscription: str, request=No
                                     for x in active_peeked_messages
                                 ],
                                 hx_get=f"/configs/{configId}/namespaces/{namespace}/topics/{topic}/subscriptions/{subscription}/active",
-                                hx_trigger="every 1s",
+                                hx_trigger="every 2s",
                                 hx_target="#active-messages-col",
                                 hx_swap="outerHTML",
                                 id="active-messages-col",
@@ -609,7 +672,7 @@ def get(configId: int, namespace: str, topic: str, subscription: str, request=No
                                     for x in deadlettered_peeked_messages
                                 ],
                                 hx_get=f"/configs/{configId}/namespaces/{namespace}/topics/{topic}/subscriptions/{subscription}/deadlettered",
-                                hx_trigger="every 1s",
+                                hx_trigger="every 2s",
                                 hx_target="#dead-lettered-messages-col",
                                 hx_swap="outerHTML",
                                 id="dead-lettered-messages-col",
@@ -647,7 +710,7 @@ def get(configId: int, namespace: str, topic: str, subscription: str):
                 for x in peeked_messages
             ],
             hx_get=f"/configs/{configId}/namespaces/{namespace}/topics/{topic}/subscriptions/{subscription}/active",
-            hx_trigger="every 1s",
+            hx_trigger="every 2s",
             hx_target="#active-messages-col",
             hx_swap="outerHTML",
             id="active-messages-col",
@@ -669,7 +732,91 @@ def get(configId: int, namespace: str, topic: str, subscription: str):
                 for x in peeked_messages
             ],
             hx_get=f"/configs/{configId}/namespaces/{namespace}/topics/{topic}/subscriptions/{subscription}/deadlettered",
-            hx_trigger="every 1s",
+            hx_trigger="every 2s",
+            hx_target="#dead-lettered-messages-col",
+            hx_swap="outerHTML",
+            id="dead-lettered-messages-col",
+        )
+
+
+# Queue message routes
+@rt("/{namespace}/{queue}/messages/active/{message_sequence_number}")
+def get(namespace: str, queue: str, message_sequence_number: int):
+    return larger_queue_message_display(namespace, queue, message_sequence_number)
+
+
+@rt("/{namespace}/{queue}/messages/deadlettered/{message_sequence_number}")
+def get(namespace: str, queue: str, message_sequence_number: int):
+    return larger_queue_message_display(
+        namespace, f"{queue}/$deadletterqueue", message_sequence_number
+    )
+
+
+def larger_queue_message_display(
+    namespace: str, queue: str, message_sequence_number: int
+):
+    with connection.get_queue_receiver(queue_name=queue) as receiver:
+        peeked_message = receiver.peek_messages(
+            max_message_count=1, sequence_number=message_sequence_number
+        )[0]
+        return (
+            Div(
+                H4("View", cls="mb-8"),
+                H5("Message ID", cls="my-2"),
+                P(peeked_message.message_id),
+                H5("Content type", cls="my-2"),
+                P(peeked_message.content_type),
+                H5("Body", cls="my-2"),
+                Pre(message_to_string(peeked_message.body)),
+                H5("Headers", cls="my-2"),
+                Table(
+                    Tr(Th("key"), Th("Value")),
+                    *[
+                        Tr(Td(message_to_string(k)), Td(message_to_string(v)))
+                        for k, v in (
+                            peeked_message.application_properties.items()
+                            if peeked_message.application_properties
+                            else []
+                        )
+                    ],
+                ),
+                id="enlarged-message",
+            ),
+        )
+
+
+@rt("/configs/{configId}/namespaces/{namespace}/queues/{queue}/active")
+def get(configId: int, namespace: str, queue: str):
+    with connection.get_queue_receiver(queue_name=queue) as receiver:
+        peeked_messages = receiver.peek_messages(max_message_count=100)
+        return Div(
+            H4("Active Messages", cls="mb-8"),
+            *[
+                queue_message_display(namespace, queue, x, "active")
+                for x in peeked_messages
+            ],
+            hx_get=f"/configs/{configId}/namespaces/{namespace}/queues/{queue}/active",
+            hx_trigger="every 2s",
+            hx_target="#active-messages-col",
+            hx_swap="outerHTML",
+            id="active-messages-col",
+        )
+
+
+@rt("/configs/{configId}/namespaces/{namespace}/queues/{queue}/deadlettered")
+def get(configId: int, namespace: str, queue: str):
+    with connection.get_queue_receiver(
+        queue_name=f"{queue}/$deadletterqueue"
+    ) as receiver:
+        peeked_messages = receiver.peek_messages(max_message_count=100)
+        return Div(
+            H4("Dead Lettered Messages", cls="mb-8"),
+            *[
+                queue_message_display(namespace, queue, x, "deadlettered")
+                for x in peeked_messages
+            ],
+            hx_get=f"/configs/{configId}/namespaces/{namespace}/queues/{queue}/deadlettered",
+            hx_trigger="every 2s",
             hx_target="#dead-lettered-messages-col",
             hx_swap="outerHTML",
             id="dead-lettered-messages-col",
@@ -697,6 +844,103 @@ async def active_messages(
 @rt("/{namespace}/{entity}/{subscription}/active/{seqNumber}")
 def get(namespace: str, entity: str, subscription: str, seqNumber: int):
     return EventStream(active_messages(namespace, entity, subscription, seqNumber))
+
+
+@rt("/configs/{configId}/namespaces/{namespace}/queues/{queue}/send")
+def get(configId: int, namespace: str, queue: str, request=None):
+    return _create_page(
+        Container(
+            Modal(
+                ModalTitle("Select a name for your saved message"),
+                Form(
+                    LabelInput("Name", id="formName"),
+                    Button(
+                        "Save",
+                        type="submit",
+                        cls=ButtonT.primary,
+                    ),
+                    hx_post=f"/{namespace}/{queue}/send/save",
+                    hx_include="#send-message-form",
+                    hx_target="#saved-sent-messages-container",
+                    hx_swap="outerHTML",
+                    hx_on__after_request="UIkit.modal('#save-message-modal').hide()",
+                ),
+                footer=Div(ModalCloseButton("Close", cls=ButtonT.secondary)),
+                id="save-message-modal",
+            ),
+            Div(cls="space-y-4")(
+                DivCentered(
+                    H3("Send Message"),
+                    P(f"To {namespace} - {queue} (Queue)", cls=TextPresets.muted_sm),
+                ),
+                send_message_form(
+                    namespace, queue, post_url=f"/{namespace}/{queue}/queue/send"
+                ),
+                prev_saved_cards(namespace, queue),
+            ),
+        ),
+        request,
+        config_id=configId,
+    )
+
+
+@rt("/configs/{configId}/namespaces/{namespace}/queues/{queue}")
+def get(configId: int, namespace: str, queue: str, request=None):
+    try:
+        with connection.get_queue_receiver(queue_name=queue) as active_receiver:
+            with connection.get_queue_receiver(
+                queue_name=f"{queue}/$deadletterqueue"
+            ) as deadlettered_receiver:
+                active_peeked_messages = active_receiver.peek_messages(
+                    max_message_count=10
+                )
+                deadlettered_peeked_messages = deadlettered_receiver.peek_messages(
+                    max_message_count=10
+                )
+                return _create_page(
+                    Container(
+                        H3(f"{namespace} > {queue} (Queue)", cls="mb-8"),
+                        Grid(
+                            Div(
+                                H4("Active Messages", cls="mb-8"),
+                                *[
+                                    queue_message_display(namespace, queue, x, "active")
+                                    for x in active_peeked_messages
+                                ],
+                                hx_get=f"/configs/{configId}/namespaces/{namespace}/queues/{queue}/active",
+                                hx_trigger="every 2s",
+                                hx_target="#active-messages-col",
+                                hx_swap="outerHTML",
+                                id="active-messages-col",
+                            ),
+                            Div(
+                                H4("Dead Lettered Messages", cls="mb-8"),
+                                *[
+                                    queue_message_display(
+                                        namespace, queue, x, "deadlettered"
+                                    )
+                                    for x in deadlettered_peeked_messages
+                                ],
+                                hx_get=f"/configs/{configId}/namespaces/{namespace}/queues/{queue}/deadlettered",
+                                hx_trigger="every 2s",
+                                hx_target="#dead-lettered-messages-col",
+                                hx_swap="outerHTML",
+                                id="dead-lettered-messages-col",
+                            ),
+                            Div(H4("View"), id="enlarged-message"),
+                        ),
+                    ),
+                    request,
+                    configId,
+                )
+    except Exception as e:
+        return Toast(
+            DivLAligned(UkIcon("square-x", cls="mr-2"), f"Failed to load queue: {e}"),
+            id="error-toast",
+            dur=7,
+            alert_cls=AlertT.error,
+            cls=(ToastHT.end, ToastVT.bottom),
+        )
 
 
 @rt("/{namespace}/{queue}")
@@ -861,11 +1105,11 @@ def sidebar(config_id: int | None):
                                                     NavContainer(
                                                         create_li(
                                                             "Send",
-                                                            f"/{n.Name}/{x.Name}/send",
+                                                            f"/configs/{config_id}/namespaces/{n.Name}/queues/{x.Name}/send",
                                                         ),
                                                         create_li(
                                                             "View",
-                                                            f"/{n.Name}/{x.Name}",
+                                                            f"/configs/{config_id}/namespaces/{n.Name}/queues/{x.Name}",
                                                         ),
                                                         parent=False,
                                                         uk_nav=True,
