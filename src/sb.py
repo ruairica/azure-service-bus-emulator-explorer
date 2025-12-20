@@ -2,8 +2,11 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List
 
-from azure.servicebus import (ServiceBusClient, ServiceBusMessage,
-                              ServiceBusReceivedMessage)
+from azure.servicebus import (
+    ServiceBusClient,
+    ServiceBusMessage,
+    ServiceBusReceivedMessage,
+)
 from fasthtml.common import *
 from monsterui.all import *
 
@@ -358,7 +361,6 @@ def send_message_form(
     contentTypevalue="application/json",
     headers: List[List[str]] = [],
 ):
-
     headerRows = (
         [
             message_header_row(i, key=x[0], ct=x[1], val=x[2])
@@ -897,10 +899,7 @@ def sidebar(config_id: int | None):
 
 
 try:
-
-    path = "C:\\Program Files\\PowerShell\\7;C:\\Program Files\\Microsoft SDKs\\Azure\\CLI2\\wbin;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Programs\\Python\\Python312;C:\\Program Files\\Microsoft MPI\\Bin\\;C:\\Users\\ruairi.caldwell\\.azure-kubectl;C:\\Windows\\system32;C:\\Windows;C:\\Windows\\System32\\Wbem;C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\;C:\\Windows\\System32\\OpenSSH\\;C:\\Program Files\\Microsoft SQL Server\\150\\Tools\\Binn\\;C:\\Program Files\\Microsoft SQL Server\\Client SDK\\ODBC\\170\\Tools\\Binn\\;C:\\Program Files (x86)\\Microsoft SQL Server\\160\\Tools\\Binn\\;C:\\Program Files\\Microsoft SQL Server\\160\\Tools\\Binn\\;C:\\Program Files\\Microsoft SQL Server\\160\\DTS\\Binn\\;C:\\Program Files (x86)\\Microsoft SQL Server\\160\\DTS\\Binn\\;C:\\Program Files\\dotnet\\;C:\\Program Files\\Azure Data Studio\\bin;C:\\ProgramData\\chocolatey\\bin;C:\\Program Files\\Graphviz\\bin;C:\\Users\\ruairi.caldwell\\AppData\\Roaming\\nvm;C:\\Program Files\\nodejs;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\;C:\\Program Files\\PowerShell\\7\\;C:\\Program Files\\Microsoft SQL Server\\170\\Tools\\Binn\\;C:\\Program Files\\Git\\cmd;C:\\Program Files\\Microsoft\\Azure Functions Core Tools\\;C:\\Program Files\\Rancher Desktop\\resources\\resources\\win32\\bin\\;C:\\Program Files\\Rancher Desktop\\resources\\resources\\win32\\docker-cli-plugins\\;C:\\Program Files\\Rancher Desktop\\resources\\resources\\linux\\bin\\;C:\\Program Files\\Rancher Desktop\\resources\\resources\\linux\\docker-cli-plugins\\;C:\\Program Files\\Go\\bin;C:\\Program Files\\GitHub CLI\\;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Programs\\Python\\Python313\\Scripts\\;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Programs\\Python\\Python313\\;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Programs\\Python\\Launcher\\;C:\\Users\\ruairi.caldwell\\scoop\\shims;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Programs\\Python\\Python312\\;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Microsoft\\WindowsApps;C:\\Users\\ruairi.caldwell\\AppData\\Local\\GitHubDesktop\\bin;C:\\Users\\ruairi.caldwell\\.dotnet\\tools;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Programs\\oh-my-posh\\bin;C:\\Program Files\\Azure Data Studio\\bin;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Programs\\Microsoft VS Code\\bin;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Microsoft\\WinGet\\Packages\\junegunn.fzf_Microsoft.Winget.Source_8wekyb3d8bbwe;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Microsoft\\WinGet\\Packages\\JesseDuffield.lazygit_Microsoft.Winget.Source_8wekyb3d8bbwe;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Microsof;C:\\Users\\ruairi.caldwell\\.bun\\bin;C:\\Users\\ruairi.caldwell\\.dotnet\\tools;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Microsoft\\WinGet\\Packages\\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.Copilot_Microsoft.Winget.Source_8wekyb3d8bbwe;C:\\Users\\ruairi.caldwell\\go\\bin;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Microsoft.Edit_Microsoft.Winget.Source_8wekyb3d8bbwe\\edit-1.2.1-x86_64-windows;C:\\Users\\ruairi.caldwell\\AppData\\Local\\PowerToys\\DSCModules\\;C:\\Users\\ruairi.caldwell\\AppData\\Local\\Programs\\Microsoft VS Code Insiders\\bin;C:\\Users\\ruairi.caldwell\\.local\\bin"
-    print(len(path))
-    # serve()
+    serve()
 finally:
     if connection is not None:
         connection.close()

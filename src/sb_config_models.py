@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 # TODO probably remove all that is not needed, as rules was messing it up...
 
+
 class CorrelationFilter(BaseModel):
     ContentType: Optional[str] = None
     CorrelationId: Optional[str] = None
