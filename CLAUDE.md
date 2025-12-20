@@ -51,8 +51,3 @@ Currently hardcoded for development emulator:
 ```
 Endpoint=mytester://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;
 ```
-
-## Known TODOs in Code
-- Database table creation should use FastHTML best practices
-- Message properties stored as comma-separated strings (needs JSON refactoring)
-- Connection string should be configurable via environment

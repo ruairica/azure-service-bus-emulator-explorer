@@ -49,3 +49,12 @@ uv run fasthtml serve sb.py
 - `sb_config_models.py`: Pydantic models for Service Bus configuration
 - `data/`: SQLite database storage
 - `pyproject.toml`: Project configuration and dependencies
+
+
+## TODO
+- currently turning the list of headers into a comma separated list which is terrible but simple
+- Database table creation should use FastHTML best practices https://www.fastht.ml/docs/ref/best_practice.html#database-table-creation
+- Connection string/PORT should be configurable in some way
+- I think all of the endpoints should be potentially under the config top-level path so that the topics aren't shared across different configs.
+- Currently, you can only stand to a topic or a queue, not both.
+
