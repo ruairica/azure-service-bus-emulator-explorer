@@ -52,6 +52,7 @@ uv run fasthtml serve sb.py
 
 
 ## TODO
+- implement reordering of configs/saves. also sort by descending. search fasthtml reorder example 
 - currently turning the list of headers into a comma separated list which is terrible but simple
 - Database table creation should use FastHTML best practices, there are also some other best practices here that should be implemented https://www.fastht.ml/docs/ref/best_practice.html#database-table-creation
 - Connection string/PORT should be configurable in some way
