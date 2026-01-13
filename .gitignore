@@ -210,3 +210,6 @@ __marimo__/
 src/data/
 src/.sesskey
 .playwright-mcp/
+profiles.db
+sb.db-shm
+sb.db-wal

@@ -153,7 +153,6 @@ def post(id: list[int]):
     )
 
 
-# TODO might not always be localhost, should set this somewhere, maybe at the time you add config?
 connection = ServiceBusClient.from_connection_string(
     conn_str="Endpoint=mytester://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
 )
@@ -737,9 +736,8 @@ def larger_message_display(
                 H5("Body", cls="my-2"),
                 Pre(
                     message_to_string(peeked_message.body),
-                    # cls="bg-secondary p-2 rounded text-white whitespace-pre-wrap"
-                    # cls="text-wrap"c
-                ),  # TODO this needs to wrap round, can I pretty print it, or put it in a code block
+                    cls="overflow-auto max-h-96",
+                ),
                 H5("Headers", cls="my-2"),
                 Table(
                     Tr(Th("key"), Th("Value")),
@@ -1044,7 +1042,10 @@ def larger_queue_message_display(
                 H5("Content type", cls="my-2"),
                 P(peeked_message.content_type),
                 H5("Body", cls="my-2"),
-                Pre(message_to_string(peeked_message.body)),
+                Pre(
+                    message_to_string(peeked_message.body),
+                    cls="overflow-auto max-h-96",
+                ),
                 H5("Headers", cls="my-2"),
                 Table(
                     Tr(Th("key"), Th("Value")),
