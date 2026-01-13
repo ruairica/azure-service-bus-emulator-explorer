@@ -9,16 +9,3 @@ dependencies = [
     "monsterui>=0.3.0",
     "pydantic>=2.0.0",
 ]
-
-[project.scripts]
-sb-explorer = "sb:serve"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["."]
-
-[dependency-groups]
-dev = []

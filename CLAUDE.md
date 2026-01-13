@@ -13,9 +13,9 @@ Azure Service Bus Emulator Explorer - a web-based UI for interacting with the Az
 uv sync
 
 # Run the application (starts web server, typically on localhost:8000)
-uv run python src/sb.py
+uv run python sb.py
 
-# after completing a task, format the src directory
+# after completing a task, format the code
 uvx ruff format
 ```
 
@@ -24,8 +24,8 @@ No test or lint configuration exists yet.
 ## Architecture
 
 ### Key Files
-- **src/sb.py** - Main FastHTML application with all routes and UI components
-- **src/sb_config_models.py** - Pydantic models defining Service Bus configuration structure (Namespaces, Queues, Topics, Subscriptions)
+- **sb.py** - Main FastHTML application with all routes and UI components
+- **models.py** - Data models including Pydantic models for Service Bus configuration (Namespaces, Queues, Topics, Subscriptions) and dataclasses for message handling
 
 ### Tech Stack
 - **FastHTML** (python-fasthtml) - Server-side web framework with HTMX integration
@@ -35,7 +35,7 @@ No test or lint configuration exists yet.
 - **SQLite** - Persistent storage via FastHTML's database utilities
 
 ### Database
-SQLite database at `src/data/sb9.db` with two tables:
+SQLite database at `sb9.db` with two tables:
 - `configs` - Stores Service Bus configuration file paths (id, path, name, priority)
 - `sent_messages` - Caches sent messages for reuse (stores message properties as comma-separated strings)
 

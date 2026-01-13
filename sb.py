@@ -1,40 +1,18 @@
 import asyncio
-from dataclasses import dataclass
 from typing import Any, Callable, Dict, List
 
-from azure.servicebus import (
-    ServiceBusClient,
-    ServiceBusMessage,
-    ServiceBusReceivedMessage,
-)
+from azure.servicebus import (ServiceBusClient, ServiceBusMessage,
+                              ServiceBusReceivedMessage)
 from fasthtml.common import *
 from monsterui.all import *
 
-from sb_config_models import Configuration, Namespace
-
-
-@dataclass
-class SbMessage:
-    body: str
-    messageContentType: str
-    messagePropertyKeys: List[str]
-    messagePropertyContentTypes: List[str]
-    messagePropertyValues: List[str]
-
-
-@dataclass
-class SbMessageSave:
-    formName: str
-    body: str
-    messageContentType: str
-    messagePropertyKeys: List[str]
-    messagePropertyContentTypes: List[str]
-    messagePropertyValues: List[str]
-
+from models import (Config, Configuration, MessageProperty, Namespace,
+                    SbMessage, SbMessageSave, SentMessage)
 
 hdrs = (
     Script(src="https://unpkg.com/htmx-ext-sse@2.2.1/sse.js"),
     (Theme.violet.headers()),
+    SortableJS(".sortable"),
     Link(
         rel="icon",
         href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>",
@@ -45,30 +23,10 @@ hdrs = (
 app, rt = fast_app(live=True, hdrs=hdrs)
 
 
-# TODO https://www.fastht.ml/docs/ref/best_practice.html#database-table-creation
-db = database("data/sb9.db")
-configs = db.t.todos
-if configs not in db.t:
-    configs.create(id=int, path=str, name=str, priority=int, pk="id")
-
-sent_messages = db.t.sent_messages
-# TODO currently turning the list into a comma separated list which is terrible but simple
-if sent_messages not in db.t:
-    sent_messages.create(
-        id=int,
-        name=str,
-        namespace=str,
-        entity=str,
-        body=str,
-        messageContentType=str,
-        messagePropertyKeys=str,
-        messagePropertyContentTypes=str,
-        messagePropertyValues=str,
-        pk="id",
-    )
-
-Config = configs.dataclass()
-SentMessage = sent_messages.dataclass()
+db = database("sb.db")
+configs = db.create(Config)
+sent_messages = db.create(SentMessage)
+message_properties = db.create(MessageProperty)
 
 
 @rt("/")
@@ -108,34 +66,44 @@ def home_page():
         ),
         Div(
             H3("Previously saved"),
-            *[
-                Card(
-                    header=Div(CardTitle(x.name), P(x.path, cls=TextPresets.muted_sm)),
-                    footer=Div(
-                        Button(
-                            "Delete",
-                            hx_target=f"#saved-card{x.id}",
-                            hx_swap="delete",
-                            hx_delete=f"/configs/{x.id}",
-                            cls=ButtonT.destructive,
+            P("Drag to reorder", cls=(TextPresets.muted_sm, "mb-2")),
+            Form(
+                *[
+                    Card(
+                        Hidden(id="id", value=x.id),
+                        header=Div(
+                            CardTitle(x.name), P(x.path, cls=TextPresets.muted_sm)
                         ),
-                        Button(
-                            "Use",
-                            type="button",
-                            hx_get=f"/configs/{x.id}",  # TODO style this
-                            hx_swap="outerHTML",
-                            hx_target=".thesidebar",
-                            hx_push_url="true",
-                            cls=ButtonT.primary,
+                        footer=Div(
+                            Button(
+                                "Delete",
+                                hx_target=f"#saved-card{x.id}",
+                                hx_swap="delete",
+                                hx_delete=f"/configs/{x.id}",
+                                cls=ButtonT.destructive,
+                            ),
+                            Button(
+                                "Use",
+                                type="button",
+                                hx_get=f"/configs/{x.id}",
+                                hx_swap="outerHTML",
+                                hx_target=".thesidebar",
+                                hx_push_url="true",
+                                cls=ButtonT.primary,
+                            ),
+                            cls="space-x-2",
                         ),
-                        cls="space-x-2",
-                    ),
-                    id=f"saved-card{x.id}",
-                )
-                for x in configs()  # TODO order this based on something....
-            ],
-            cls="space-y-4 mt-8",
-            id="saved-sent-messages-container",
+                        id=f"saved-card{x.id}",
+                    )
+                    for x in configs(order_by="priority")
+                ],
+                id="configs-list",
+                cls="sortable space-y-4",
+                hx_post="/configs/reorder",
+                hx_trigger="end",
+            ),
+            cls="mt-8",
+            id="saved-configs-container",
         ),
     )
 
@@ -150,6 +118,39 @@ class ConfigForm:
 def delete(configId: int):
     configs.delete(configId)
     return Div()
+
+
+@rt("/configs/reorder")
+def post(id: list[int]):
+    for i, id_ in enumerate(id):
+        configs.update({"priority": i}, id_)
+    return tuple(
+        Card(
+            Hidden(id="id", value=x.id),
+            header=Div(CardTitle(x.name), P(x.path, cls=TextPresets.muted_sm)),
+            footer=Div(
+                Button(
+                    "Delete",
+                    hx_target=f"#saved-card{x.id}",
+                    hx_swap="delete",
+                    hx_delete=f"/configs/{x.id}",
+                    cls=ButtonT.destructive,
+                ),
+                Button(
+                    "Use",
+                    type="button",
+                    hx_get=f"/configs/{x.id}",
+                    hx_swap="outerHTML",
+                    hx_target=".thesidebar",
+                    hx_push_url="true",
+                    cls=ButtonT.primary,
+                ),
+                cls="space-x-2",
+            ),
+            id=f"saved-card{x.id}",
+        )
+        for x in configs(order_by="priority")
+    )
 
 
 # TODO might not always be localhost, should set this somewhere, maybe at the time you add config?
@@ -298,18 +299,29 @@ async def post(queue: str, message: SbMessage):
 
 @rt("/{namespace}/{entity}/send/save")
 async def post(namespace: str, entity: str, form: SbMessageSave):
-    sent_messages.insert(
+    msg = sent_messages.insert(
         SentMessage(
             name=form.formName,
             body=form.body,
             namespace=namespace,
             entity=entity,
             messageContentType=form.messageContentType,
-            messagePropertyKeys=",".join(form.messagePropertyKeys),
-            messagePropertyContentTypes=",".join(form.messagePropertyContentTypes),
-            messagePropertyValues=",".join(form.messagePropertyValues),
+            priority=0,
         )
     )
+    for key, content_type, value in zip(
+        form.messagePropertyKeys,
+        form.messagePropertyContentTypes,
+        form.messagePropertyValues,
+    ):
+        message_properties.insert(
+            MessageProperty(
+                sent_message_id=msg.id,
+                key=key,
+                content_type=content_type,
+                value=value,
+            )
+        )
 
     return prev_saved_cards(namespace, entity)
 
@@ -359,42 +371,87 @@ def get(configId: int, namespace: str, topic: str, request=None):
 def prev_saved_cards(namespace: str, entity: str):
     return Div(
         H3("Previously saved"),
-        *[
-            Card(
-                header=CardTitle(x.name),
-                footer=Div(
-                    Button(
-                        "Delete",
-                        hx_target=f"#saved-card{x.id}",
-                        hx_swap="delete",
-                        hx_delete=f"/savedmessages/delete/{x.id}",
-                        cls=ButtonT.destructive,
+        P("Drag to reorder", cls=(TextPresets.muted_sm, "mb-2")),
+        Form(
+            *[
+                Card(
+                    Hidden(id="id", value=x.id),
+                    header=CardTitle(x.name),
+                    footer=Div(
+                        Button(
+                            "Delete",
+                            hx_target=f"#saved-card{x.id}",
+                            hx_swap="delete",
+                            hx_delete=f"/savedmessages/delete/{x.id}",
+                            cls=ButtonT.destructive,
+                        ),
+                        Button(
+                            "Use",
+                            type="button",
+                            hx_get=f"/{namespace}/{entity}/savedmessages/use/{x.id}",
+                            hx_swap="outerHTML",
+                            hx_target="#send-message-form",
+                            cls=ButtonT.primary,
+                        ),
+                        cls="space-x-2",
                     ),
-                    Button(
-                        "Use",
-                        type="button",
-                        hx_get=f"/{namespace}/{entity}/savedmessages/use/{x.id}",
-                        hx_swap="outerHTML",
-                        hx_target="#send-message-form",
-                        cls=ButtonT.primary,
-                    ),
-                    cls="space-x-2",
-                ),
-                id=f"saved-card{x.id}",
-            )
-            for x in sent_messages(
-                where=f"namespace='{namespace}' AND entity='{entity}'"
-            )
-        ],
-        cls="space-y-4",
+                    id=f"saved-card{x.id}",
+                )
+                for x in sent_messages(
+                    where=f"namespace='{namespace}' AND entity='{entity}'",
+                    order_by="priority",
+                )
+            ],
+            id="saved-messages-list",
+            cls="sortable space-y-4",
+            hx_post=f"/{namespace}/{entity}/savedmessages/reorder",
+            hx_trigger="end",
+        ),
         id="saved-sent-messages-container",
     )
 
 
 @rt("/savedmessages/delete/{savedMessageId}")
 def delete(savedMessageId: int):
+    for prop in message_properties(where=f"sent_message_id = {savedMessageId}"):
+        message_properties.delete(prop.id)
     sent_messages.delete(savedMessageId)
     return Div()
+
+
+@rt("/{namespace}/{entity}/savedmessages/reorder")
+def post(namespace: str, entity: str, id: list[int]):
+    for i, id_ in enumerate(id):
+        sent_messages.update({"priority": i}, id_)
+    return tuple(
+        Card(
+            Hidden(id="id", value=x.id),
+            header=CardTitle(x.name),
+            footer=Div(
+                Button(
+                    "Delete",
+                    hx_target=f"#saved-card{x.id}",
+                    hx_swap="delete",
+                    hx_delete=f"/savedmessages/delete/{x.id}",
+                    cls=ButtonT.destructive,
+                ),
+                Button(
+                    "Use",
+                    type="button",
+                    hx_get=f"/{namespace}/{entity}/savedmessages/use/{x.id}",
+                    hx_swap="outerHTML",
+                    hx_target="#send-message-form",
+                    cls=ButtonT.primary,
+                ),
+                cls="space-x-2",
+            ),
+            id=f"saved-card{x.id}",
+        )
+        for x in sent_messages(
+            where=f"namespace='{namespace}' AND entity='{entity}'",
+            order_by="priority",
+        )
+    )
 
 
 def send_message_form(
@@ -484,21 +541,15 @@ def send_message_form(
 @rt("/{namespace}/{entity}/savedmessages/use/{savedMessageId}")
 def get(namespace: str, entity: str, savedMessageId: int):
     item = sent_messages[savedMessageId]
+    props = message_properties(where=f"sent_message_id = {savedMessageId}")
+    headers = [[p.key, p.content_type, p.value] for p in props]
 
     return send_message_form(
         namespace,
         entity,
         item.body,
         item.messageContentType,
-        list(
-            zip(
-                item.messagePropertyKeys.split(
-                    ","
-                ),  # TODO potentially just put these keys in another table ?
-                item.messagePropertyContentTypes.split(","),
-                item.messagePropertyValues.split(","),
-            )
-        ),
+        headers,
     )
 
 

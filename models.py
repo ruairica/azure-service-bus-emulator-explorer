@@ -1,6 +1,51 @@
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
+
+
+class Config:
+    id: int
+    path: str
+    name: str
+    priority: int
+
+
+class SentMessage:
+    id: int
+    name: str
+    namespace: str
+    entity: str
+    body: str
+    messageContentType: str
+    priority: int
+
+
+class MessageProperty:
+    id: int
+    sent_message_id: int
+    key: str
+    content_type: str
+    value: str
+
+
+@dataclass
+class SbMessage:
+    body: str
+    messageContentType: str
+    messagePropertyKeys: List[str]
+    messagePropertyContentTypes: List[str]
+    messagePropertyValues: List[str]
+
+
+@dataclass
+class SbMessageSave:
+    formName: str
+    body: str
+    messageContentType: str
+    messagePropertyKeys: List[str]
+    messagePropertyContentTypes: List[str]
+    messagePropertyValues: List[str]
 
 
 # TODO probably remove all that is not needed, as rules was messing it up...

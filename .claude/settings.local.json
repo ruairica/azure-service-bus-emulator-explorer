@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uvx ruff format:*)",
+      "mcp__playwright__browser_console_messages"
+    ]
+  }
+}
