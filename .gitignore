@@ -214,3 +214,4 @@ profiles.db
 sb.db
 sb.db-shm
 sb.db-wal
+tmpclaude-*
