@@ -1,4 +1,5 @@
 import asyncio
+import json
 from typing import Any, Callable, Dict, List
 
 from azure.servicebus import (ServiceBusClient, ServiceBusMessage,
@@ -735,7 +736,7 @@ def larger_message_display(
                 P(peeked_message.content_type),
                 H5("Body", cls="my-2"),
                 Pre(
-                    message_to_string(peeked_message.body),
+                    format_message_body(peeked_message.body),
                     cls="overflow-auto max-h-96",
                 ),
                 H5("Headers", cls="my-2"),
@@ -793,6 +794,16 @@ def message_to_string(x):
         return x.decode("utf-8")
     else:
         return str(x)
+
+
+def format_message_body(body) -> str:
+    """Convert message body to string, pretty-printing JSON if detected."""
+    text = message_to_string(body)
+    try:
+        parsed = json.loads(text)
+        return json.dumps(parsed, indent=2)
+    except (json.JSONDecodeError, TypeError):
+        return text
 
 
 def delete_message_by_sequence(receiver, sequence_number: int, max_messages: int = 100):
@@ -1043,7 +1054,7 @@ def larger_queue_message_display(
                 P(peeked_message.content_type),
                 H5("Body", cls="my-2"),
                 Pre(
-                    message_to_string(peeked_message.body),
+                    format_message_body(peeked_message.body),
                     cls="overflow-auto max-h-96",
                 ),
                 H5("Headers", cls="my-2"),
