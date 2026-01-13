@@ -577,9 +577,98 @@ def get(namespace: str, entity: str, subscription: str, message_sequence_number:
     )
 
 
+# delete an active message from a topic subscription
+@rt(
+    "/{namespace}/{entity}/{subscription}/messages/active/{message_sequence_number}/delete"
+)
+def delete(
+    namespace: str, entity: str, subscription: str, message_sequence_number: int
+):
+    """Delete an active message from a topic subscription"""
+    with connection.get_subscription_receiver(
+        topic_name=entity, subscription_name=subscription, max_wait_time=5
+    ) as receiver:
+        success, error = delete_message_by_sequence(receiver, message_sequence_number)
+
+        if success:
+            return (
+                Div(H4("View"), id="enlarged-message"),
+                Toast(
+                    DivLAligned(
+                        UkIcon("check-circle", cls="mr-2"),
+                        "Message deleted successfully",
+                    ),
+                    id="success-toast",
+                    dur=2,
+                    alert_cls=AlertT.success,
+                    cls=(ToastHT.end, ToastVT.bottom),
+                ),
+            )
+        else:
+            return Toast(
+                DivLAligned(
+                    UkIcon("square-x", cls="mr-2"), f"Failed to delete: {error}"
+                ),
+                id="error-toast",
+                dur=5,
+                alert_cls=AlertT.error,
+                cls=(ToastHT.end, ToastVT.bottom),
+            )
+
+
+# delete a dead-lettered message from a topic subscription
+@rt(
+    "/{namespace}/{entity}/{subscription}/messages/deadlettered/{message_sequence_number}/delete"
+)
+def delete(
+    namespace: str, entity: str, subscription: str, message_sequence_number: int
+):
+    """Delete a dead-lettered message from a topic subscription"""
+    with connection.get_subscription_receiver(
+        topic_name=entity,
+        subscription_name=f"{subscription}/$deadletterqueue",
+        max_wait_time=5,
+    ) as receiver:
+        success, error = delete_message_by_sequence(receiver, message_sequence_number)
+
+        if success:
+            return (
+                Div(H4("View"), id="enlarged-message"),
+                Toast(
+                    DivLAligned(
+                        UkIcon("check-circle", cls="mr-2"),
+                        "Dead-lettered message deleted successfully",
+                    ),
+                    id="success-toast",
+                    dur=2,
+                    alert_cls=AlertT.success,
+                    cls=(ToastHT.end, ToastVT.bottom),
+                ),
+            )
+        else:
+            return Toast(
+                DivLAligned(
+                    UkIcon("square-x", cls="mr-2"), f"Failed to delete: {error}"
+                ),
+                id="error-toast",
+                dur=5,
+                alert_cls=AlertT.error,
+                cls=(ToastHT.end, ToastVT.bottom),
+            )
+
+
 def larger_message_display(
     namespace: str, entity: str, subscription: str, message_sequence_number: int
 ):
+    # Determine if this is a dead letter message
+    is_dead_letter = subscription.endswith("/$deadletterqueue")
+    original_subscription = (
+        subscription.replace("/$deadletterqueue", "")
+        if is_dead_letter
+        else subscription
+    )
+    message_type = "deadlettered" if is_dead_letter else "active"
+
     with connection.get_subscription_receiver(
         topic_name=entity, subscription_name=subscription
     ) as receiver:
@@ -612,6 +701,36 @@ def larger_message_display(
                         )
                     ],
                 ),
+                # Delete button and modal
+                Div(
+                    Button(
+                        "Delete Message",
+                        type="button",
+                        data_uk_toggle=f"target: #delete-message-modal-{message_sequence_number}",
+                        cls=(ButtonT.destructive, "mt-8"),
+                    ),
+                    Modal(
+                        ModalTitle("Confirm Delete"),
+                        P(
+                            "Are you sure you want to delete this message? This action cannot be undone.",
+                            cls="my-4",
+                        ),
+                        footer=Div(
+                            ModalCloseButton("Cancel", cls=ButtonT.secondary),
+                            Button(
+                                "Delete",
+                                hx_delete=f"/{namespace}/{entity}/{original_subscription}/messages/{message_type}/{message_sequence_number}/delete",
+                                hx_target="#enlarged-message",
+                                hx_swap="outerHTML",
+                                hx_on__after_request=f"UIkit.modal('#delete-message-modal-{message_sequence_number}').hide()",
+                                cls=ButtonT.destructive,
+                            ),
+                            cls="flex gap-2",
+                        ),
+                        id=f"delete-message-modal-{message_sequence_number}",
+                    ),
+                    cls="mt-8",
+                ),
                 id="enlarged-message",
             ),
         )
@@ -625,6 +744,40 @@ def message_to_string(x):
         return x.decode("utf-8")
     else:
         return str(x)
+
+
+def delete_message_by_sequence(receiver, sequence_number: int, max_messages: int = 100):
+    """Delete a specific message by sequence number.
+
+    Args:
+        receiver: Azure Service Bus receiver instance
+        sequence_number: Sequence number of the message to delete
+        max_messages: Maximum messages to receive while searching
+
+    Returns:
+        tuple: (success: bool, error_message: str or None)
+    """
+    try:
+        messages = receiver.receive_messages(
+            max_message_count=max_messages, max_wait_time=5
+        )
+
+        target_message = None
+        for msg in messages:
+            if msg.sequence_number == sequence_number:
+                target_message = msg
+            else:
+                # Return non-target messages back to queue
+                receiver.abandon_message(msg)
+
+        if target_message:
+            receiver.complete_message(target_message)
+            return (True, None)
+        else:
+            return (False, "Message not found or already processed")
+
+    except Exception as e:
+        return (False, str(e))
 
 
 @rt(
@@ -752,9 +905,82 @@ def get(namespace: str, queue: str, message_sequence_number: int):
     )
 
 
+# delete an active message from a queue
+@rt("/{namespace}/{queue}/messages/active/{message_sequence_number}/delete")
+def delete(namespace: str, queue: str, message_sequence_number: int):
+    """Delete an active message from a queue"""
+    with connection.get_queue_receiver(queue_name=queue, max_wait_time=5) as receiver:
+        success, error = delete_message_by_sequence(receiver, message_sequence_number)
+
+        if success:
+            return (
+                Div(H4("View"), id="enlarged-message"),
+                Toast(
+                    DivLAligned(
+                        UkIcon("check-circle", cls="mr-2"),
+                        "Message deleted successfully",
+                    ),
+                    id="success-toast",
+                    dur=2,
+                    alert_cls=AlertT.success,
+                    cls=(ToastHT.end, ToastVT.bottom),
+                ),
+            )
+        else:
+            return Toast(
+                DivLAligned(
+                    UkIcon("square-x", cls="mr-2"), f"Failed to delete: {error}"
+                ),
+                id="error-toast",
+                dur=5,
+                alert_cls=AlertT.error,
+                cls=(ToastHT.end, ToastVT.bottom),
+            )
+
+
+# delete a dead-lettered message from a queue
+@rt("/{namespace}/{queue}/messages/deadlettered/{message_sequence_number}/delete")
+def delete(namespace: str, queue: str, message_sequence_number: int):
+    """Delete a dead-lettered message from a queue"""
+    with connection.get_queue_receiver(
+        queue_name=f"{queue}/$deadletterqueue", max_wait_time=5
+    ) as receiver:
+        success, error = delete_message_by_sequence(receiver, message_sequence_number)
+
+        if success:
+            return (
+                Div(H4("View"), id="enlarged-message"),
+                Toast(
+                    DivLAligned(
+                        UkIcon("check-circle", cls="mr-2"),
+                        "Dead-lettered message deleted successfully",
+                    ),
+                    id="success-toast",
+                    dur=2,
+                    alert_cls=AlertT.success,
+                    cls=(ToastHT.end, ToastVT.bottom),
+                ),
+            )
+        else:
+            return Toast(
+                DivLAligned(
+                    UkIcon("square-x", cls="mr-2"), f"Failed to delete: {error}"
+                ),
+                id="error-toast",
+                dur=5,
+                alert_cls=AlertT.error,
+                cls=(ToastHT.end, ToastVT.bottom),
+            )
+
+
 def larger_queue_message_display(
     namespace: str, queue: str, message_sequence_number: int
 ):
+    # Determine if this is a dead letter message
+    is_dead_letter = queue.endswith("/$deadletterqueue")
+    original_queue = queue.replace("/$deadletterqueue", "") if is_dead_letter else queue
+    message_type = "deadlettered" if is_dead_letter else "active"
+
     with connection.get_queue_receiver(queue_name=queue) as receiver:
         peeked_message = receiver.peek_messages(
             max_message_count=1, sequence_number=message_sequence_number
@@ -779,6 +1005,36 @@ def larger_queue_message_display(
                             else []
                         )
                     ],
+                ),
+                # Delete button and modal
+                Div(
+                    Button(
+                        "Delete Message",
+                        type="button",
+                        data_uk_toggle=f"target: #delete-queue-message-modal-{message_sequence_number}",
+                        cls=(ButtonT.destructive, "mt-8"),
+                    ),
+                    Modal(
+                        ModalTitle("Confirm Delete"),
+                        P(
+                            "Are you sure you want to delete this message? This action cannot be undone.",
+                            cls="my-4",
+                        ),
+                        footer=Div(
+                            ModalCloseButton("Cancel", cls=ButtonT.secondary),
+                            Button(
+                                "Delete",
+                                hx_delete=f"/{namespace}/{original_queue}/messages/{message_type}/{message_sequence_number}/delete",
+                                hx_target="#enlarged-message",
+                                hx_swap="outerHTML",
+                                hx_on__after_request=f"UIkit.modal('#delete-queue-message-modal-{message_sequence_number}').hide()",
+                                cls=ButtonT.destructive,
+                            ),
+                            cls="flex gap-2",
+                        ),
+                        id=f"delete-queue-message-modal-{message_sequence_number}",
+                    ),
+                    cls="mt-8",
                 ),
                 id="enlarged-message",
             ),

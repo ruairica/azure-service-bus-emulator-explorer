@@ -14,6 +14,9 @@ uv sync
 
 # Run the application (starts web server, typically on localhost:8000)
 uv run python src/sb.py
+
+# after completing a task, format the src directory
+uvx ruff format
 ```
 
 No test or lint configuration exists yet.
