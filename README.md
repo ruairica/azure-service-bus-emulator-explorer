@@ -34,6 +34,5 @@ uv run sb.py
 - **pydantic**: Data validation
 
 
-## TODO-
-- routing and query conventions...
-- Connection string/PORT should be configurable in some way
+## Limitations
+- Assumes service bus emulator is running on localhost

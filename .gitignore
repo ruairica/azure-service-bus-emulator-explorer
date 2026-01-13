@@ -211,5 +211,6 @@ src/data/
 src/.sesskey
 .playwright-mcp/
 profiles.db
+sb.db
 sb.db-shm
 sb.db-wal
