@@ -1,6 +1,6 @@
 # SB Emulator Explorer
 
-A web-based tool for interacting with Azure Service Bus Emulator, Send messages, view active and deadlettered messages. Save messages for easy re-sending later.
+A local web UI for the Azure Service Bus Emulator. Send messages, view active and dead-lettered messages, and save messages for easy re-use.
 
 ### Prerequisites
 
