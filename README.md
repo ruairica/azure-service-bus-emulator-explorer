@@ -8,7 +8,7 @@ A local web UI for the Azure Service Bus Emulator. (since Service bus Explorer d
 2. Clone the repository
 3. Install dependencies: `uv sync`
 4. Start the app: `uv run sb.py` (this starts the FastHTML web app locally)
-5. Open `http://localhost:8000` in your browser
+5. Open `http://localhost:5001` in your browser
 
 ## Features
 
@@ -20,5 +20,5 @@ A local web UI for the Azure Service Bus Emulator. (since Service bus Explorer d
 - Click a message to inspect it.
 - Delete individual active or dead-lettered messages from subscriptions and queues
 
-# Limitations
+## Limitations
 The code assumes the service bus emulator is already running, and is running on localhost.
