@@ -21,7 +21,7 @@ hdrs = (
 )
 
 
-app, rt = fast_app(live=True, hdrs=hdrs)
+app, rt = fast_app(live=False, hdrs=hdrs)
 
 
 db = database("sb.db")
@@ -47,7 +47,7 @@ def home_page():
                     LabelInput(
                         "Full Path To configuration file",
                         id="configFilePath",
-                        placeholder="C:\Source\\Testing\sbconfig.json",
+                        placeholder=r"C:\Source\Testing\sbconfig.json",
                     ),
                     LabelInput("Save as", id="name", placeholder="email notifier sb"),
                     Div(
@@ -874,7 +874,6 @@ def get(configId: int, namespace: str, topic: str, subscription: str, request=No
                                 hx_target="#active-messages-col",
                                 hx_swap="outerHTML",
                                 id="active-messages-col",
-                                # TODO get divider in here
                             ),
                             Div(
                                 H4("Dead Lettered Messages", cls="mb-8"),
@@ -900,7 +899,7 @@ def get(configId: int, namespace: str, topic: str, subscription: str, request=No
         return Toast(
             DivLAligned(
                 UkIcon("square-x", cls="mr-2"), f"Failed to load subscription: {e}"
-            ),  # TODO make the text wrap...
+            ),
             id="error-toast",
             dur=7,
             alert_cls=AlertT.error,
@@ -1328,7 +1327,6 @@ def with_layout(content, config_id: int | None = None):
 
 
 def sidebar(config_id: int | None):
-    # TODO try catch this....
     namespaces = (
         Configuration.model_validate_json(
             open(configs[config_id].path).read()

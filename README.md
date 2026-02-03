@@ -1,38 +1,24 @@
 # SB Emulator Explorer
 
-A local web UI for the Azure Service Bus Emulator. Send messages, view active and dead-lettered messages, and save messages for easy re-use.
+A local web UI for the Azure Service Bus Emulator. (since Service bus Explorer doesn't support the emulator)
 
-### Prerequisites
+## Getting Started
 
-- Python 3.10 or higher
-- UV (install from https://docs.astral.sh/uv/getting-started/installation/)
+1. Install Python and UV.
+2. Clone the repository
+3. Install dependencies: `uv sync`
+4. Start the app: `uv run sb.py` (this starts the FastHTML web app locally)
+5. Open `http://localhost:8000` in your browser
 
-### Installation
+## Features
 
-1. Clone or download this repository
-2. Run the following command to install dependencies:
+- Insert a path to a service bus emulator json configuration file to connect (it's persisted in sqlite for future)
+- Browse namespaces, topics, subscriptions, and queues.
+- Send messages to topics and queues (can send custom headers)
+- Save sent messages to reuse them in the future
+- View active and deadlettered messages on topic subscriptions and queues.
+- Click a message to inspect it.
+- Delete individual active or dead-lettered messages from subscriptions and queues
 
-```bash
-uv sync
-```
-
-This will create a virtual environment and install all required dependencies.
-
-## Running the Application
-
-To run the application:
-
-```bash
-uv run sb.py
-```
-
-## Dependencies
-
-- **python-fasthtml**: Web framework
-- **azure-servicebus**: Azure Service Bus SDK
-- **monsterui**: UI components
-- **pydantic**: Data validation
-
-
-## Limitations
-- Assumes service bus emulator is running on localhost
+# Limitations
+The code assumes the service bus emulator is already running, and is running on localhost.
