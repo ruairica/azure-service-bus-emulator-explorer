@@ -2,13 +2,24 @@ import asyncio
 import json
 from typing import Any, Callable, Dict, List
 
-from azure.servicebus import (ServiceBusClient, ServiceBusMessage,
-                              ServiceBusReceivedMessage)
+from azure.servicebus import (
+    ServiceBusClient,
+    ServiceBusMessage,
+    ServiceBusReceivedMessage,
+)
 from fasthtml.common import *
 from monsterui.all import *
 
-from models import (Config, Configuration, MessageProperty, Namespace,
-                    SbMessage, SbMessageSave, SentMessage)
+from models import (
+    Config,
+    Configuration,
+    MessageProperty,
+    Namespace,
+    Rule,
+    SbMessage,
+    SbMessageSave,
+    SentMessage,
+)
 
 hdrs = (
     Script(src="https://unpkg.com/htmx-ext-sse@2.2.1/sse.js"),
@@ -840,11 +851,74 @@ def delete_message_by_sequence(receiver, sequence_number: int, max_messages: int
         return (False, str(e))
 
 
+def subscription_rules(
+    configId: int, namespace: str, topic: str, subscription: str
+) -> list[Rule]:
+    "Look up a subscription's rules in the saved configuration file"
+    return next(
+        (
+            s.Rules
+            for n in load_namespaces(configId)
+            if n.Name == namespace
+            for t in n.Topics
+            if t.Name == topic
+            for s in t.Subscriptions
+            if s.Name == subscription
+        ),
+        [],
+    )
+
+
+def rule_display(rule: Rule):
+    props = rule.Properties
+    if props.SqlFilter is not None:
+        filter_content = CodeBlock(props.SqlFilter.SqlExpression or "")
+    elif props.CorrelationFilter is not None:
+        fields = props.CorrelationFilter.model_dump(exclude_none=True)
+        fields |= {
+            f"Properties.{k}": v for k, v in fields.pop("Properties", {}).items()
+        }
+        filter_content = Table(
+            Tr(Th("Field"), Th("Value")),
+            *[Tr(Td(k), Td(str(v))) for k, v in fields.items()],
+        )
+    else:
+        filter_content = P("No filter defined", cls=TextPresets.muted_sm)
+    action = props.Action and props.Action.SqlExpression
+    return Card(
+        filter_content,
+        (
+            Div(P("Action", cls="font-semibold mt-4 mb-2"), CodeBlock(action))
+            if action
+            else ""
+        ),
+        header=DivLAligned(
+            H5(rule.Name), Label(props.FilterType, cls=LabelT.secondary)
+        ),
+    )
+
+
+def rules_display(rules: list[Rule]):
+    return Div(
+        H4(f"Rules ({len(rules)})", cls="mb-4"),
+        (
+            Grid(*[rule_display(r) for r in rules], cols_lg=2)
+            if rules
+            else P(
+                "No rules defined, so every message sent to the topic is delivered.",
+                cls=TextPresets.muted_sm,
+            )
+        ),
+        cls="mb-8",
+    )
+
+
 @rt(
     "/configs/{configId}/namespaces/{namespace}/topics/{topic}/subscriptions/{subscription}"
 )
 def get(configId: int, namespace: str, topic: str, subscription: str, request=None):
     try:
+        rules = subscription_rules(configId, namespace, topic, subscription)
         with connection.get_subscription_receiver(
             topic_name=topic, subscription_name=subscription
         ) as active_receiver:
@@ -860,6 +934,7 @@ def get(configId: int, namespace: str, topic: str, subscription: str, request=No
                 return _create_page(
                     Container(
                         H3(f"{namespace} > {topic} > {subscription}", cls="mb-8"),
+                        rules_display(rules),
                         Grid(
                             Div(
                                 H4("Active Messages", cls="mb-8"),
@@ -1326,14 +1401,14 @@ def with_layout(content, config_id: int | None = None):
     )
 
 
+def load_namespaces(config_id: int) -> list[Namespace]:
+    "Parse the namespaces from a saved configuration file"
+    with open(configs[config_id].path) as f:
+        return Configuration.model_validate_json(f.read()).UserConfig.Namespaces
+
+
 def sidebar(config_id: int | None):
-    namespaces = (
-        Configuration.model_validate_json(
-            open(configs[config_id].path).read()
-        ).UserConfig.Namespaces
-        if config_id is not None
-        else []
-    )
+    namespaces = load_namespaces(config_id) if config_id is not None else []
 
     def create_li(title, href):
         return Li(A(title, hx_target="#content", hx_get=href, hx_push_url="true"))

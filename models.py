@@ -48,7 +48,7 @@ class SbMessageSave:
     messagePropertyValues: List[str]
 
 
-class CorrelationFilter(BaseModel):
+class CorrelationFilterProperties(BaseModel):
     ContentType: Optional[str] = None
     CorrelationId: Optional[str] = None
     Label: Optional[str] = None
@@ -60,9 +60,15 @@ class CorrelationFilter(BaseModel):
     Properties: Optional[Dict[str, Any]] = None
 
 
+class SqlExpression(BaseModel):
+    SqlExpression: Optional[str] = None
+
+
 class RuleProperties(BaseModel):
     FilterType: str
-    CorrelationFilter: CorrelationFilter
+    CorrelationFilter: Optional[CorrelationFilterProperties] = None
+    SqlFilter: Optional[SqlExpression] = None
+    Action: Optional[SqlExpression] = None
 
 
 class Rule(BaseModel):
@@ -83,7 +89,7 @@ class SubscriptionProperties(BaseModel):
 class Subscription(BaseModel):
     Name: str
     Properties: SubscriptionProperties
-    # Rules: List[Rule] = []
+    Rules: List[Rule] = []
 
 
 class TopicProperties(BaseModel):
